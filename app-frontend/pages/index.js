@@ -15,42 +15,58 @@ export default function Home() {
   const [transaction, setTransactionId] = useState('');
   const [balance, setAccountBalance] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState({});
+  const invalidInputMessage = 'Invalid input format for amount or account id';
+  const serverErrorMessage = 'The is something wrong with the server';
 
   useEffect(() => {
     if (dataFetchedRef.current) return;
     dataFetchedRef.current = true;
     const fetchData = async () => {
+      let res;
       try {
-        const response = await fetch(getTransActionsListUrl);
-        const res = await response.json();
-        setTransactionsList(res);
+        res = await axios.get(getTransActionsListUrl).then((response) => {
+          return response;
+        })
+        setTransactionsList(res.data);
         setLoadingTransactions(false);
       } catch (error) {
-        console.log('Something went wrong fetching the data')
+        if (error.code === 'ERR_BAD_REQUEST') {
+          setErrorMessage({ message: invalidInputMessage });
+        } else if (error.response.status >= 500) {
+          setErrorMessage({ message: serverErrorMessage });
+        }
+        setError(true);
       }
     }
     fetchData();
-
   }, [getTransActionsListUrl])
 
   // useEffect(() => {
-  //   console.log('-----transaction: ', transaction)
-    
+  //   console.log('-----transaction id: ', transaction)
+
   // }, [transaction])
 
 
   const fetchBalance = async (accountId) => {
+    let response;
     try {
-      const response = await fetch(`${getBalanceURL}${accountId}`);
+      response = await fetch(`${getBalanceURL}${accountId}`);
       const res = await response.json();
-      setAccountBalance(res.balance);
 
+      setAccountBalance(res.balance);
     } catch (error) {
-      console.log('Something went wrong fetching the account balance')
+      if (error.code === 'ERR_BAD_REQUEST') {
+        setErrorMessage({ message: invalidInputMessage });
+      } else if (error.response.status >= 500) {
+        setErrorMessage({ message: serverErrorMessage });
+      }
+      setError(true);
     }
   }
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault();
 
     const amount = amountRef.current.value;
@@ -58,7 +74,22 @@ export default function Home() {
     const accountId = accountIdRef.current.value;
     setAccountId(accountId);
 
-    axios.post(getTransActionsListUrl, request).then(response => setTransactionId(response.transactionId))
+    const request = { 'account_id': accountId, 'amount': amount };
+    let res;
+    try {
+      res = await axios.post(getTransActionsListUrl, request).then(response => {
+        return response
+      });
+      setTransactionId(res.data.transactionId)
+    } catch (error) {
+      if (error.code === 'ERR_BAD_REQUEST') {
+        setErrorMessage({ message: invalidInputMessage });
+      } else if (error.response.status >= 500) {
+        setErrorMessage({ message: serverErrorMessage });
+      }
+      setError(true);
+
+    }
 
     fetchBalance(accountId);
     setSubmitted(true);
@@ -67,17 +98,21 @@ export default function Home() {
   }
 
   let div;
-  if(loadingTransactions){
-    div = <p>Laoding historical transactions...</p>
+  if (loadingTransactions) {
+    div = <p>Loading historical transactions...</p>
   }
 
   let toOrFrom;
-  if(amount !== undefined && amount > 0){
+  if (amount !== undefined && amount > 0) {
     toOrFrom = 'to';
   } else {
     toOrFrom = 'from';
   }
 
+  let err;
+  if (error) {
+    err = <p>Error occured: {errorMessage.message} </p>
+  }
   return (
     <div className='main'>
       <div className='col'>
@@ -85,16 +120,17 @@ export default function Home() {
           <label>Account id:</label>
           <input data-type="account-id" type='text' ref={accountIdRef} />
           <label>Amount:</label>
-          <input data-type="amount" type="text" ref={amountRef}/>
+          <input data-type="amount" type="text" ref={amountRef} />
 
-          <input data-type="transaction-submit" type="submit"/>
+          <input data-type="transaction-submit" type="submit" />
+          <div>{err}</div>
         </form>
 
       </div>
       <div className='col'>
         <p>Transaction history:</p>
         <div>{div}</div>
-        {submitted && 
+        {submitted && !error &&
           <div
             data-type="transaction"
             data-account-id="${transaction-account-id}"
@@ -105,13 +141,8 @@ export default function Home() {
         }
         {!loadingTransactions && transactionsList.map((t) => (
           <TransactionRow amount={t.amount} accountId={t.account_id}></TransactionRow>
-          ))}
+        ))}
       </div>
-
-
     </div>
-
-
-
   )
 }
