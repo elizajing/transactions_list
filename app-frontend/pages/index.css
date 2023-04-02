@@ -1,0 +1,15 @@
+.main {
+    display: flex;
+    margin: 100px;
+}
+
+.col {
+    flex-direction: column;
+    margin: 30px;
+}
+
+input {
+    width: 100%;
+    margin: 10px;
+}
+
