@@ -43,12 +43,6 @@ export default function Home() {
     fetchData();
   }, [getTransActionsListUrl])
 
-  // useEffect(() => {
-  //   console.log('-----transaction id: ', transaction)
-
-  // }, [transaction])
-
-
   const fetchBalance = async (accountId) => {
     let response;
     try {
